@@ -10,7 +10,7 @@
 using namespace std;
 
 class Calculator {
-	
+
 	enum class Status { wait, numberSt, binOp, unOp, leftB, func };
 
 	vector<Lexema> lexems;
@@ -21,12 +21,27 @@ class Calculator {
 		Lexema l;
 		if (input[pos] - '0' >= 0 && input[pos] - '0' <= 9)
 		{
-			long long num = 0;
+			double num = 0;
 			while (input[pos] - '0' >= 0 && input[pos] - '0' <= 9 && pos < input.size())
 			{
 				num *= 10;
 				num += input[pos] - '0';
 				pos++;
+			}
+			if (input[pos] == '.')
+			{
+				double cnt = 0.1;
+				pos++;
+				while (input[pos] - '0' >= 0 && input[pos] - '0' <= 9 && pos < input.size())
+				{
+					num += (input[pos] - '0') * cnt;
+					cnt *= 0.1;
+					pos++;
+				}
+				l.name = "d";
+			}
+			else {
+				l.name = "l";
 			}
 			nextPos = pos;
 			l.type = TypeLex::number;
@@ -136,13 +151,39 @@ class Calculator {
 		if (countBoard != 0) throw("errorCountB+");
 	}
 
-	long long getBinOperation(long long x1, long long x2, Lexema l)
+	Lexema getBinOperation(Lexema& x1, Lexema& x2, Lexema& l)
 	{
-		if (l.name == "*") return x1 * x2;
-		else if (l.name == "/") return x1 / x2;
-		else if (l.name == "+") return x1 + x2;
-		else if (l.name == "-") return x1 - x2;
-		else if (l.name == "%") return x1 % x2;
+		Lexema out;
+		out.type = TypeLex::number;
+		if (x1.name == "d" || x2.name == "d") {
+			out.name = "d";
+		}
+		else {
+			out.name = "l";
+		}
+
+		if (l.name == "*") {
+			out.value = x1.value * x2.value;
+		}
+		else if (l.name == "/") {
+			out.value = x1.value / x2.value;
+		}
+		else if (l.name == "+") {
+			out.value = x1.value + x2.value;
+		}
+		else if (l.name == "-") {
+			out.value = x1.value - x2.value;
+		}
+		else if (l.name == "%") {
+			if (out.name == "l") {
+				out.value = (double)((long long)x1.value % (long long)x2.value);
+			}
+			else {
+				throw("op % for only int");
+			}
+		}
+
+		return out;
 	}
 
 public:
@@ -161,7 +202,7 @@ public:
 		checkInput();
 	}
 
-	long long countingLexems() {
+	double countingLexems() {
 		queue<Lexema> pExpression;
 		stack<Lexema> operation;
 		for (int i = 0; i < lexems.size(); i++)
@@ -213,24 +254,24 @@ public:
 			pExpression.push(operation.top());
 			operation.pop();
 		}
-		stack<long long> result;
+		stack<Lexema> result;
 		while (!pExpression.empty())
 		{
 			if (pExpression.front().type == TypeLex::number)
 			{
-				result.push((long long)pExpression.front().value);
+				result.push(pExpression.front());
 			}
 			else if (pExpression.front().type == TypeLex::binOp)
 			{
-				long long x1 = result.top();
+				Lexema x1 = result.top();
 				result.pop();
-				long long x2 = result.top();
+				Lexema x2 = result.top();
 				result.pop();
 				result.push(getBinOperation(x2, x1, pExpression.front()));
 			}
 			pExpression.pop();
 		}
-		return result.top();
+		return result.top().value;
 	}
 
 };

@@ -10,7 +10,7 @@ using namespace std;
 
 int main() {
 	string input;
-	long long result = 0;
+	double result = 0;
 
 	cin >> input;
 
