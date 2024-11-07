@@ -1,13 +1,13 @@
 #pragma once
 
 #include <iostream>
+#include <variant>
 #include <vector>
 #include <stack>
 #include <queue>
 #include <string>
 #include <set>
 #include <map>
-#include <variant>
 #include <cmath>
 #include "lexema.h"
 
@@ -19,12 +19,17 @@ class Calculator {
 
 	vector<Lexema> lexems;
 	std::set<std::string> var_name;
-	std::map<std::string, double> variable;
+	std::map<std::string, std::variant<long long, double>> variable;
 	int countBoard = 0;
 
 	Lexema getLexems(string input, int pos, int& nextPos)
 	{
 		Lexema l;
+
+		while (input[pos] == ' ') {
+			++pos;
+		}
+
 		if (input[pos] - '0' >= 0 && input[pos] - '0' <= 9)
 		{
 			double num = 0;
@@ -44,14 +49,13 @@ class Calculator {
 					cnt *= 0.1;
 					pos++;
 				}
-				l.name = "d";
+				l.value = static_cast<double>(num);
 			}
 			else {
-				l.name = "l";
+				l.value = static_cast<long long>(num);
 			}
 			nextPos = pos;
 			l.type = TypeLex::number;
-			l.value = num;
 		}
 		else if (input[pos] == '+')
 		{
@@ -127,17 +131,21 @@ class Calculator {
 			l.name = "cos";
 			l.priority = 3;
 		}
-		else if (pos + 2 < input.size() && input[pos] == 'l' && input[pos + 1] == 'g')
+		else if (pos + 1 < input.size() && input[pos] == 'l' && input[pos + 1] == 'g')
 		{
-
 			nextPos = pos + 2;
 			l.type = TypeLex::func;
 			l.name = "lg";
 			l.priority = 3;
-			int num = 10;
-			l.value = num;
 		}
-		else if ('a' <= input[pos] && input[pos] <= 'z' || 'A' <= input[pos] && input[pos] <= 'Z' || input[pos]=='_') {
+		else if (pos + 3 < input.size() && input[pos] == 's' && input[pos + 1] == 'q' && input[pos + 2] == 'r' && input[pos + 3] == 't')
+		{
+			nextPos = pos + 4;
+			l.type = TypeLex::func;
+			l.name = "sqrt";
+			l.priority = 3;
+		}
+		else if ('a' <= input[pos] && input[pos] <= 'z' || 'A' <= input[pos] && input[pos] <= 'Z' || input[pos] == '_') {
 			l.type = TypeLex::var;
 			std::string name;
 			while ('a' <= input[pos] && input[pos] <= 'z' || 'A' <= input[pos] && input[pos] <= 'Z' || input[pos] == '_' || '0' <= input[pos] && input[pos] <= '9') {
@@ -155,7 +163,8 @@ class Calculator {
 		return l;
 	}
 
-	void checkInput() {
+	void checkInput()
+	{
 		Status currentSt = Status::wait;
 
 		for (int i = 0; i < lexems.size(); i++)
@@ -175,6 +184,8 @@ class Calculator {
 				else if (type == TypeLex::rightB) { currentSt = Status::numberSt; countBoard--; }
 				else if (type == TypeLex::leftB) throw("errorLB");
 				else if (type == TypeLex::func) throw("errorFunc");
+				else if (type == TypeLex::number) throw("errorNumWithoutOp");
+				else if (type == TypeLex::var) throw("errorVarWithoutOp");
 			}
 			else if (currentSt == Status::binOp) {
 				if (type == TypeLex::number) currentSt = Status::numberSt;
@@ -212,40 +223,75 @@ class Calculator {
 	{
 		Lexema out;
 		out.type = TypeLex::number;
-		if (x1.name == "d" || x2.name == "d") {
-			out.name = "d";
+
+		if (holds_alternative<double>(x1.value) && holds_alternative<double>(x2.value)) {
 			if (l.name == "*") {
-				out.value = x1.value * x2.value;
+				out.value = std::get<double>(x1.value) * std::get<double>(x2.value);
 			}
 			else if (l.name == "/") {
-				out.value = x1.value / x2.value;
+				out.value = std::get<double>(x1.value) / std::get<double>(x2.value);
 			}
 			else if (l.name == "+") {
-				out.value = x1.value + x2.value;
+				out.value = std::get<double>(x1.value) + std::get<double>(x2.value);
 			}
 			else if (l.name == "-") {
-				out.value = x1.value - x2.value;
+				out.value = std::get<double>(x1.value) - std::get<double>(x2.value);
 			}
 			else if (l.name == "%") {
 				throw("op % for only int");
 			}
 		}
-		else {
-			out.name = "l";
+		else if (holds_alternative<double>(x1.value) && holds_alternative<long long>(x2.value)) {
 			if (l.name == "*") {
-				out.value = (double)((long long)x1.value * (long long)x2.value);
+				out.value = std::get<double>(x1.value) * std::get<long long>(x2.value);
 			}
 			else if (l.name == "/") {
-				out.value = (double)((long long)x1.value / (long long)x2.value);
+				out.value = std::get<double>(x1.value) / std::get<long long>(x2.value);
 			}
 			else if (l.name == "+") {
-				out.value = (double)((long long)x1.value + (long long)x2.value);
+				out.value = std::get<double>(x1.value) + std::get<long long>(x2.value);
 			}
 			else if (l.name == "-") {
-				out.value = (double)((long long)x1.value - (long long)x2.value);
+				out.value = std::get<double>(x1.value) - std::get<long long>(x2.value);
 			}
 			else if (l.name == "%") {
-				out.value = (double)((long long)x1.value % (long long)x2.value);
+				throw("op % for only int");
+			}
+		}
+		else if (holds_alternative<long long>(x1.value) && holds_alternative<double>(x2.value)) {
+			if (l.name == "*") {
+				out.value = std::get<long long>(x1.value) * std::get<double>(x2.value);
+			}
+			else if (l.name == "/") {
+				out.value = std::get<long long>(x1.value) / std::get<double>(x2.value);
+			}
+			else if (l.name == "+") {
+				out.value = std::get<long long>(x1.value) + std::get<double>(x2.value);
+			}
+			else if (l.name == "-") {
+				out.value = std::get<long long>(x1.value) - std::get<double>(x2.value);
+			}
+			else if (l.name == "%") {
+				throw("op % for only int");
+			}
+		}
+		else if (holds_alternative<long long>(x1.value) && holds_alternative<long long>(x2.value)) {
+			if (l.name == "*") {
+				out.value = std::get<long long>(x1.value) * std::get<long long>(x2.value);
+			}
+			else if (l.name == "/") {
+				if (std::get<long long>(x2.value) == 0)
+					throw("errorDivByZero");
+				out.value = std::get<long long>(x1.value) / std::get<long long>(x2.value);
+			}
+			else if (l.name == "+") {
+				out.value = std::get<long long>(x1.value) + std::get<long long>(x2.value);
+			}
+			else if (l.name == "-") {
+				out.value = std::get<long long>(x1.value) - std::get<long long>(x2.value);
+			}
+			else if (l.name == "%") {
+				out.value = std::get<long long>(x1.value) % std::get<long long>(x2.value);
 			}
 		}
 		return out;
@@ -255,21 +301,40 @@ class Calculator {
 	{
 		Lexema out;
 		out.type = TypeLex::number;
-		out.name = "d";
-		if (l.name == "exp") {
-			out.value = exp(x.value);
+
+		if (holds_alternative<double>(x.value)) {
+			if (l.name == "exp") {
+				out.value = exp(std::get<double>(x.value));
+			}
+			else if (l.name == "sin") {
+				out.value = sin(std::get<double>(x.value));
+			}
+			else if (l.name == "cos") {
+				out.value = cos(std::get<double>(x.value));
+			}
+			else if (l.name == "lg") {
+				out.value = log(std::get<double>(x.value)) / log(10);
+			}
+			else if (l.name == "sqrt") {
+				out.value = sqrt(std::get<double>(x.value));
+			}
 		}
-		else if (l.name == "sin") {
-			out.value = sin(x.value);
-		}
-		else if (l.name == "cos") {
-			out.value = cos(x.value);
-		}
-		else if (l.name == "lg") {
-			out.value = log(x.value) / log(l.value);
-		}
-		else if (l.name == "sqrt") {
-			out.value = sqrt(x.value);
+		else if (holds_alternative<long long>(x.value)) {
+			if (l.name == "exp") {
+				out.value = exp(std::get<long long>(x.value));
+			}
+			else if (l.name == "sin") {
+				out.value = sin(std::get<long long>(x.value));
+			}
+			else if (l.name == "cos") {
+				out.value = cos(std::get<long long>(x.value));
+			}
+			else if (l.name == "lg") {
+				out.value = log(std::get<long long>(x.value)) / log(10);
+			}
+			else if (l.name == "sqrt") {
+				out.value = sqrt(std::get<long long>(x.value));
+			}
 		}
 
 		return out;
@@ -277,7 +342,8 @@ class Calculator {
 
 public:
 
-	Calculator(string input) {
+	Calculator(string input)
+	{
 
 		int startPos = 0;
 		int endPos = 0;
@@ -291,7 +357,8 @@ public:
 		checkInput();
 	}
 
-	double countingLexems() {
+	std::variant<long long, double> countingLexems()
+	{
 		queue<Lexema> pExpression;
 		stack<Lexema> operation;
 		for (int i = 0; i < lexems.size(); i++)
@@ -337,7 +404,7 @@ public:
 				}
 				operation.pop();
 			}
-			else if (lexems[i].type == TypeLex::func) 
+			else if (lexems[i].type == TypeLex::func)
 			{
 				operation.push(lexems[i]);
 			}
@@ -347,7 +414,6 @@ public:
 					Lexema l;
 					l.type = TypeLex::number;
 					l.value = variable[lexems[i].name];
-					l.name = "d";
 					pExpression.push(l);
 				}
 				else {
@@ -386,21 +452,70 @@ public:
 		return result.top().value;
 	}
 
-	void getVarName(std::vector<std::string>& vec) {
+	void getVarName(std::vector<std::string>& vec)
+	{
 		vec = std::vector<std::string>(var_name.begin(), var_name.end());
 	}
 
-	void setVarValue(std::vector<std::pair<std::string,double>>& vec) {
+	void setVarValue(std::vector<std::pair<std::string, std::variant<long long, double>>>& vec)
+	{
 		if (vec.size() != var_name.size()) {
-			throw("notEnoughVar");
+			throw("errorNotEnoughVar");
 		}
 		int ind = 0;
-		for (int i = 0; i < vec.size();i++) {
+		for (int i = 0; i < vec.size(); i++) {
 			variable[vec[i].first] = vec[i].second;
 		}
 	}
 };
 
 
+std::variant<long long, double> strToVar(std::string& input) 
+{
+	std::variant<long long, double> ans;
 
+	int pos = 0;
 
+	while (input[pos] == ' ') {
+		++pos;
+	}
+
+	bool neg = 0;
+	if (input[pos] == '-') {
+		neg = 1;
+		++pos;
+	}
+
+	if (input[pos] - '0' >= 0 && input[pos] - '0' <= 9)
+	{
+		double num = 0;
+		while (input[pos] - '0' >= 0 && input[pos] - '0' <= 9 && pos < input.size())
+		{
+			num *= 10;
+			num += input[pos] - '0';
+			pos++;
+		}
+		if (input[pos] == '.')
+		{
+			double cnt = 0.1;
+			pos++;
+			while (input[pos] - '0' >= 0 && input[pos] - '0' <= 9 && pos < input.size())
+			{
+				num += (input[pos] - '0') * cnt;
+				cnt *= 0.1;
+				pos++;
+			}
+			if (neg) num *= (-1);
+			ans = static_cast<double>(num);
+		}
+		else {
+			if (neg) num *= (-1);
+			ans = static_cast<long long>(num);
+		}
+	}
+	else
+	{
+		throw("errorVarValue");
+	}
+	return ans;
+}
