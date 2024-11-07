@@ -2,7 +2,7 @@
 
 #include <string>
 
-enum TypeLex { number, binOp, unOp, leftB, rightB };
+enum TypeLex { number, binOp, unOp, leftB, rightB, func, var };
 
 struct Lexema {
 	TypeLex type;
